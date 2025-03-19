@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<materials>
+  <material id="1" name="Lithium Lead">
+    <density units="g/cm3" value="10.218"/>
+    <nuclide ao="0.014" name="Pb204"/>
+    <nuclide ao="0.241" name="Pb206"/>
+    <nuclide ao="0.221" name="Pb207"/>
+    <nuclide ao="0.524" name="Pb208"/>
+    <nuclide ao="0.07589" name="Li6"/>
+    <nuclide ao="0.92411" name="Li7"/>
+  </material>
+</materials>
