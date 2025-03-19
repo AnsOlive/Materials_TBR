@@ -9,7 +9,7 @@ from openmc.stats import Point, Discrete, Isotropic
 ##### MATERIALS ####
 ####################
 
-Li = openmc.Material(name = 'FLiBe')
+Li = openmc.Material(name = 'Liquid Lithium')
 Li.add_element('Li' , 1)
 Li.set_density('g/cm3' , 0.534)
 #Li.temperature = (523 + 773) / 2
