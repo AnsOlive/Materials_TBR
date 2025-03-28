@@ -7,16 +7,24 @@ import openmc
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import argparse
+import os
+
+# Parse arguments
+parser = argparse.ArgumentParser(description='Run OpenMC simulation with specified salt.')
+parser.add_argument('--salt', type=str, required=True, help='Name of the salt material to use')
+args = parser.parse_args()
+salt_name = args.salt
 
 # Define parameter ranges
-breeder_thicknesses = np.linspace(0, 10.0, 10)  # Widths from 0m to 10m
+breeder_thicknesses = np.linspace(0, 50.0, 10)  # Widths from 0m to 10m
 enrichments = np.linspace(0, 100, 10)  # Enrichment from 0% to 100% in 10% steps
 
 # Storage for results
 results = []
 
 for width in breeder_thicknesses:
-    for enrichment in enrichments:
+    for enrich in enrichments:
 
         ##################################################################################################
         # Materials
@@ -27,69 +35,70 @@ for width in breeder_thicknesses:
         Breeder.add_element("Be", 100)
         materials = openmc.Materials([Breeder])
 
-        FLiBe = openmc.Material(name='FLiBe')
-        FLiBe.set_density('g/cm3', 1.937)
-        FLiBe.add_element('F', 57.3)
-        FLiBe.add_element('Li', 28.2, enrichment=enrichment, enrichment_target='Li6')
-        FLiBe.add_element('Be', 14.5)
-        materials.append(FLiBe)
+        if salt_name == 'FLiBe':
+            salt = openmc.Material(name='FLiBe')
+            salt.set_density('g/cm3', 1.7)
+            salt.add_element('F', 57.3)
+            salt.add_element('Li', 28.2, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Be', 14.5)
 
-        # LiBaBi = openmc.Material(name="LiBaBi")
-        # LiBaBi.set_density("g/cm3", 1.7)
-        # LiBaBi.add_element('Li', 20, enrichment=enrich, enrichment_target='Li6')
-        # LiBaBi.add_element('Ba', 10)
-        # LiBaBi.add_element('Bi', 70)
-        # testing_materials.append(LiBaBi)
+        elif salt_name == 'LiBaBi':
+            salt = openmc.Material(name="LiBaBi")
+            salt.set_density("g/cm3", 1.7)
+            salt.add_element('Li', 20, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Ba', 10)
+            salt.add_element('Bi', 70)
 
-        # LiPbBa = openmc.Material(name="LiPbBa")
-        # LiPbBa.set_density("g/cm3", 1.7)
-        # LiPbBa.add_element('Li', 25, enrichment=enrich, enrichment_target='Li6')
-        # LiPbBa.add_element('Pb', 60)
-        # LiPbBa.add_element('Ba', 15)
-        # testing_materials.append(LiPbBa)
+        elif salt_name == 'LiPbBa':
+            salt = openmc.Material(name="LiPbBa")
+            salt.set_density("g/cm3", 1.7)
+            salt.add_element('Li', 25, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Pb', 60)
+            salt.add_element('Ba', 15)
 
-        # LiSnZn = openmc.Material(name="LiSnZn")
-        # LiSnZn.set_density("g/cm3", 1.7)
-        # LiSnZn.add_element('Li', 65, enrichment=enrich, enrichment_target='Li6')
-        # LiSnZn.add_element('Sn', 25)
-        # LiSnZn.add_element('Zn', 10)
-        # testing_materials.append(LiSnZn)
+        elif salt_name == 'LiSnZn':
+            salt = openmc.Material(name="LiSnZn")
+            salt.set_density("g/cm3", 1.7)
+            salt.add_element('Li', 65, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Sn', 25)
+            salt.add_element('Zn', 10)
 
-        # LiCuPb = openmc.Material(name="LiCuPb")
-        # LiCuPb.set_density("g/cm3", 1.7)
-        # LiCuPb.add_element('Li', 40, enrichment=enrich, enrichment_target='Li6')
-        # LiCuPb.add_element('Cu', 20)
-        # LiCuPb.add_element('Pb', 40)
-        # testing_materials.append(LiCuPb)
+        elif salt_name == 'LiCuPb':
+            salt = openmc.Material(name="LiCuPb")
+            salt.set_density("g/cm3", 1.7)
+            salt.add_element('Li', 40, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Cu', 20)
+            salt.add_element('Pb', 40)
 
-        # LiGaPb = openmc.Material(name="LiGaPb")
-        # LiGaPb.set_density("g/cm3", 1.7)
-        # LiGaPb.add_element('Li', 35, enrichment=enrich, enrichment_target='Li6')
-        # LiGaPb.add_element('Ga', 10)
-        # LiGaPb.add_element('Pb', 55)
-        # testing_materials.append(LiGaPb)
+        elif salt_name == 'LiGaPb':
+            salt = openmc.Material(name="LiGaPb")
+            salt.set_density("g/cm3", 1.7)
+            salt.add_element('Li', 35, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Ga', 10)
+            salt.add_element('Pb', 55)
 
-        # LiSrPb = openmc.Material(name="LiSrPb")
-        # LiSrPb.set_density("g/cm3", 1.7)
-        # LiSrPb.add_element('Li', 30, enrichment=enrich, enrichment_target='Li6')
-        # LiSrPb.add_element('Sr', 50)
-        # LiSrPb.add_element('Pb', 20)
-        # testing_materials.append(LiSrPb)
+        elif salt_name == 'LiSrPb':
+            salt = openmc.Material(name="LiSrPb")
+            salt.set_density("g/cm3", 1.7)
+            salt.add_element('Li', 30, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Sr', 50)
+            salt.add_element('Pb', 20)
 
-        # LiPbZn = openmc.Material(name="LiPbZn")
-        # LiPbZn.set_density("g/cm3", 1.7)
-        # LiPbZn.add_element('Li', 30, enrichment=enrich, enrichment_target='Li6')
-        # LiPbZn.add_element('Pb', 60)
-        # LiPbZn.add_element('Zn', 10)
-        # testing_materials.append(LiPbZn)
+        elif salt_name == 'LiPbZn':
+            salt = openmc.Material(name="LiPbZn")
+            salt.set_density("g/cm3", 1.7)
+            salt.add_element('Li', 30, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Pb', 60)
+            salt.add_element('Zn', 10)
 
-        # LiNaSn = openmc.Material(name="LiNaSn")
-        # LiNaSn.set_density("g/cm3", 1.7)
-        # LiNaSn.add_element('Li', 55, enrichment=enrich, enrichment_target='Li6')
-        # LiNaSn.add_element('Na', 30)
-        # LiNaSn.add_element('Sn', 15)
-        # testing_materials.append(LiNaSn)
+        elif salt_name == 'LiNaSn':
+            salt = openmc.Material(name="LiNaSn")
+            salt.set_density("g/cm3", 1.7)
+            salt.add_element('Li', 55, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Na', 30)
+            salt.add_element('Sn', 15)
 
+        materials.append(salt)
         materials.export_to_xml()
 
         ##################################################################################################
@@ -116,7 +125,7 @@ for width in breeder_thicknesses:
 
         center_cell = openmc.Cell(fill=None, region=center_void)
         cell_reflector = openmc.Cell(fill=Breeder, region=region_reflector)
-        cell_salt = openmc.Cell(fill=FLiBe, region=region_salt)
+        cell_salt = openmc.Cell(fill=salt, region=region_salt)
         outer_cell = openmc.Cell(fill=None, region=outer_void)
 
         universe = openmc.Universe(cells=[center_cell, cell_salt, cell_reflector, outer_cell])
@@ -136,7 +145,7 @@ for width in breeder_thicknesses:
 
         settings = openmc.Settings()
         settings.batches = 10
-        settings.inactive = 10
+        settings.inactive = 0
         settings.particles = 10
         settings.run_mode = 'fixed source'
         settings.source = source
@@ -149,7 +158,7 @@ for width in breeder_thicknesses:
         tallies = openmc.Tallies()
 
         TBR_tally = openmc.Tally(name='TBR')
-        TBR_tally.filters = [openmc.MaterialFilter([FLiBe])]
+        TBR_tally.filters = [openmc.MaterialFilter([salt])]
         TBR_tally.scores = ['(n,Xt)']
         tallies.append(TBR_tally)
 
@@ -164,7 +173,7 @@ for width in breeder_thicknesses:
             TBR_std_dev = statepoint.get_tally(name="TBR").std_dev.item()  # Ensure it's a scalar
 
             # Save results to list
-            results.append([width, enrichment, TBR_mean, TBR_std_dev])
+            results.append([width, enrich, TBR_mean, TBR_std_dev])
 
 # Convert results into a NumPy array for structured processing
 results = np.array(results)
@@ -189,16 +198,39 @@ ax.set_title("TBR vs. Width vs. Enrichment (Heatmap)")
 cbar.set_label("TBR Value")
 ax.set_title("TBR vs. Width vs. Enrichment")
 
-# Save plot
-plt.savefig("tbr_heatmap.png", dpi=300)
+
+# Heatmap Plot
+fig1, ax1 = plt.subplots(figsize=(10, 7))
+heatmap = ax1.contourf(X, Y, Z, levels=20, cmap="coolwarm")
+cbar = plt.colorbar(heatmap)
+ax1.set_xlabel("Lithium Enrichment (%)")
+ax1.set_ylabel("Breeder Blanket Width (m)")
+ax1.set_title("TBR vs. Width vs. Enrichment (Heatmap)")
+cbar.set_label("TBR Value")
+plt.savefig(f"tbr_heatmap_{salt_name}.png", dpi=300)
 plt.show()
 
-print("Plot saved as 'tbr_surface_plot.png'")
+# 3D Plot
+fig2 = plt.figure(figsize=(10, 7))
+ax2 = fig2.add_subplot(111, projection='3d')
+ax2.plot_surface(X, Y, Z, cmap="viridis")
+ax2.set_xlabel("Lithium Enrichment (%)")
+ax2.set_ylabel("Breeder Blanket Width (m)")
+ax2.set_zlabel("TBR")
+ax2.set_title("TBR vs. Width vs. Enrichment (3D Surface Plot)")
+plt.savefig(f"tbr_3d_plot{salt_name}.png", dpi=300)
+plt.show()
+
+print("Both heatmap and 3D plot have been saved as 'tbr_heatmap.png' and 'tbr_3d_plot.png' respectively.")
 
 # Print results in a readable format
-print("Width (m) | Enrichment (%) | TBR Mean | TBR Std Dev")
-for width, enrichment, tbr_mean, tbr_std in results:
-    print(f"{width:8.2f} | {enrichment:12.2f} | {tbr_mean:8.5f} | {tbr_std:10.5f}")
+with open(f'raw_data_{salt_name}.txt', 'a') as file:
+    file.write("Width (m) | Enrichment (%) | TBR Mean | TBR Std Dev\n")
+    for width, enrichment, tbr_mean, tbr_std in results:
+        file.write(f"{width:8.2f} | {enrichment:12.2f} | {tbr_mean:8.5f} | {tbr_std:10.5f}\n")
+    file.write(f"\n\n The maximum enrichment for {salt_name} is {np.max(TBR_values)}")
+    file.write(f"\n\n The mean enrichment for {salt_name} is {np.mean(TBR_values)}")
+    file.write(f"\n\n The median enrichment for {salt_name} is {np.median(TBR_values)}")
 
 os.remove('geometry.xml')
 os.remove('materials.xml')
