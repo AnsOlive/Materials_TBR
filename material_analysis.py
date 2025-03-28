@@ -1,8 +1,3 @@
-# NOTES: MATERIALS THAT ARE COMMENTED OUT ARE FOR ACTUAL RUNS. CURRENTLY SILL 
-# BEING TESTED SO DO NOT INCREASE BATCHES OR STEPS UNTIL AFTER INITIAL ANALYSIS.
-# MATERIALS ALSO NEED TO HAVE THEIR CORRECT DENSITIES SET AND HAVE THE add_s_alpha_beta()
-# ADDED FOR RELEVANT FUNCTIONS
-
 import openmc
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,6 +18,7 @@ enrichments = np.linspace(0, 100, 10)  # Enrichment from 0% to 100% in 10% steps
 # Storage for results
 results = []
 
+# Loop through Breeder Thicknesses and Enrichments
 for width in breeder_thicknesses:
     for enrich in enrichments:
 
@@ -30,11 +26,10 @@ for width in breeder_thicknesses:
         # Materials
         ##################################################################################################
 
-        Breeder = openmc.Material(name="Breeding Layer")
-        Breeder.set_density("g/cm3", 1.845)
-        Breeder.add_element("Be", 100)
-        materials = openmc.Materials([Breeder])
-
+        ##################################################################################################
+        # Salts
+        ##################################################################################################
+        
         if salt_name == 'FLiBe':
             salt = openmc.Material(name='FLiBe')
             salt.set_density('g/cm3', 1.7)
@@ -97,6 +92,12 @@ for width in breeder_thicknesses:
             salt.add_element('Li', 55, enrichment=enrich, enrichment_target='Li6')
             salt.add_element('Na', 30)
             salt.add_element('Sn', 15)
+            
+        # Breeder Material
+        Breeder = openmc.Material(name="Breeding Layer")
+        Breeder.set_density("g/cm3", 1.845)
+        Breeder.add_element("Be", 100)
+        materials = openmc.Materials([Breeder])
 
         materials.append(salt)
         materials.export_to_xml()
@@ -105,15 +106,18 @@ for width in breeder_thicknesses:
         # Geometry
         ##################################################################################################
 
+        # Set Radii
         inner_radius, outer_radius = 6, 2000
         reflector_radius = 6 + width
         boundary = outer_radius + 1
 
+        # Sphere within a Aphere with no Leakage
         sphere_inner = openmc.Sphere(r=inner_radius)
         sphere_reflector = openmc.Sphere(r=reflector_radius)
         sphere_outer = openmc.Sphere(r=outer_radius)
         sphere_leakage = openmc.Sphere(r=boundary, boundary_type='reflective')
 
+        # Define Cells
         center_void = -sphere_inner
         region_reflector = +sphere_inner & -sphere_reflector
         region_salt = +sphere_reflector & -sphere_outer
@@ -123,26 +127,29 @@ for width in breeder_thicknesses:
         # Cells
         ##################################################################################################
 
+        # Define and Fill Cells
         center_cell = openmc.Cell(fill=None, region=center_void)
         cell_reflector = openmc.Cell(fill=Breeder, region=region_reflector)
         cell_salt = openmc.Cell(fill=salt, region=region_salt)
         outer_cell = openmc.Cell(fill=None, region=outer_void)
 
+        # Define Universe
         universe = openmc.Universe(cells=[center_cell, cell_salt, cell_reflector, outer_cell])
         geometry = openmc.Geometry(universe)
-
         geometry.export_to_xml()
 
         ##################################################################################################
         # Settings
         ##################################################################################################
 
+        # Source Definition
         source = openmc.IndependentSource()
         source.particle = 'neutron'
         source.energy = openmc.stats.Discrete([14.1e6], [1.0])
         source.angle = openmc.stats.Isotropic()
         source.space = openmc.stats.Point((0.0, 0.0, 0.0))
 
+        # Settings
         settings = openmc.Settings()
         settings.batches = 10
         settings.inactive = 0
@@ -157,6 +164,7 @@ for width in breeder_thicknesses:
 
         tallies = openmc.Tallies()
 
+        # TBR Tally for the Salt being Run
         TBR_tally = openmc.Tally(name='TBR')
         TBR_tally.filters = [openmc.MaterialFilter([salt])]
         TBR_tally.scores = ['(n,Xt)']
@@ -164,10 +172,17 @@ for width in breeder_thicknesses:
 
         tallies.export_to_xml()
 
-        # Run OpenMC simulation
+        ##################################################################################################
+        # Run OpenMC
+        ##################################################################################################
+        
         openmc.run()
 
-        # Extract results
+        ##################################################################################################
+        # Extract Results
+        ##################################################################################################
+        
+        # Take the data and append it to the results
         with openmc.StatePoint("statepoint.10.h5") as statepoint:
             TBR_mean = statepoint.get_tally(name="TBR").mean.item()  # Ensure it's a scalar
             TBR_std_dev = statepoint.get_tally(name="TBR").std_dev.item()  # Ensure it's a scalar
@@ -175,7 +190,7 @@ for width in breeder_thicknesses:
             # Save results to list
             results.append([width, enrich, TBR_mean, TBR_std_dev])
 
-# Convert results into a NumPy array for structured processing
+# Convert results into a NumPy array
 results = np.array(results)
 
 # Extract width, enrichment, and TBR values
@@ -186,18 +201,6 @@ TBR_values = results[:, 2]  # Z-axis (TBR)
 # Reshape arrays for 3D plotting
 X, Y = np.meshgrid(np.unique(enrichments), np.unique(widths))
 Z = results[:, 2].reshape(len(np.unique(widths)), len(np.unique(enrichments)))
-
-# 3D Surface Plot
-fig, ax = plt.subplots(figsize=(10, 7))
-heatmap = ax.contourf(X, Y, Z, levels=20, cmap="coolwarm")  # Blue = Low, Red = High
-cbar = plt.colorbar(heatmap)
-
-ax.set_xlabel("Lithium Enrichment (%)")
-ax.set_ylabel("Breeder Blanket Width (m)")
-ax.set_title("TBR vs. Width vs. Enrichment (Heatmap)")
-cbar.set_label("TBR Value")
-ax.set_title("TBR vs. Width vs. Enrichment")
-
 
 # Heatmap Plot
 fig1, ax1 = plt.subplots(figsize=(10, 7))
@@ -221,7 +224,7 @@ ax2.set_title("TBR vs. Width vs. Enrichment (3D Surface Plot)")
 plt.savefig(f"tbr_3d_plot{salt_name}.png", dpi=300)
 plt.show()
 
-print("Both heatmap and 3D plot have been saved as 'tbr_heatmap.png' and 'tbr_3d_plot.png' respectively.")
+print("Both heatmap and 3D plot have been saved.")
 
 # Print results in a readable format
 with open(f'raw_data_{salt_name}.txt', 'a') as file:
@@ -232,6 +235,7 @@ with open(f'raw_data_{salt_name}.txt', 'a') as file:
     file.write(f"\n\n The mean enrichment for {salt_name} is {np.mean(TBR_values)}")
     file.write(f"\n\n The median enrichment for {salt_name} is {np.median(TBR_values)}")
 
+# Remove all unneded files to reduce clutter
 os.remove('geometry.xml')
 os.remove('materials.xml')
 os.remove('settings.xml')
