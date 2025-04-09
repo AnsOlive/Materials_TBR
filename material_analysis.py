@@ -114,8 +114,8 @@ for width in breeder_thicknesses:
         ##################################################################################################
 
         # Defines all the radii for this iteration
-        inner_radius, outer_radius = 6, 2000
-        reflector_radius = 6 + width
+        inner_radius, outer_radius = 600, 200000
+        reflector_radius = 600 + width
         boundary = outer_radius + 1
 
         # Define all boundaries
