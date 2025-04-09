@@ -279,11 +279,8 @@ print(f"Maximum TBR for {salt_name}: {max_tbr:.5f}")
 print(f"Optimal breeder width: {optimal_width:.2f} cm")
 print(f"Optimal lithium enrichment: {optimal_enrichment:.2f} %")
 
-# Remove all previosly named text files to prevent rewriting in previous files
-for file in glob.glob("raw_data_*.txt"):
-    os.remove(file)
-
 # Print results in a readable format
+os.remove(f'raw_data_{salt_name}.txt')
 with open(f'raw_data_{salt_name}.txt', 'a') as file:
     file.write("Width (cm) | Enrichment (%) | TBR Mean | TBR Std Dev\n")
     for width, enrichment, tbr_mean, tbr_std in results:
