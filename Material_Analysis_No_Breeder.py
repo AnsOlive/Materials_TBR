@@ -218,8 +218,7 @@ print(f"Maximum TBR for {salt_name}: {max_tbr:.5f}")
 print(f"Optimal lithium enrichment: {optimal_enrichment:.2f} %")
 
 # Print results in a readable format
-os.remove(f'raw_data_{salt_name}.txt')
-with open(f'raw_data_{salt_name}.txt', 'a') as file:
+with open(f'raw_data_{salt_name}.txt', 'w') as file:
     file.write("Enrichment (%) | TBR Mean | TBR Std Dev\n")
     for enrichment, tbr_mean, tbr_std in results:
         file.write(f"{enrichment:14.2f} | {tbr_mean:8.5f} | {tbr_std:10.5f}\n")
