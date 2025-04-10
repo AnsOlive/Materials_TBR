@@ -280,8 +280,7 @@ print(f"Optimal breeder width: {optimal_width:.2f} cm")
 print(f"Optimal lithium enrichment: {optimal_enrichment:.2f} %")
 
 # Print results in a readable format
-os.remove(f'raw_data_{salt_name}.txt')
-with open(f'raw_data_{salt_name}.txt', 'a') as file:
+with open(f'raw_data_{salt_name}.txt', 'w') as file:
     file.write("Width (cm) | Enrichment (%) | TBR Mean | TBR Std Dev\n")
     for width, enrichment, tbr_mean, tbr_std in results:
         file.write(f"{width:10.2f} | {enrichment:14.2f} | {tbr_mean:8.5f} | {tbr_std:10.5f}\n")
