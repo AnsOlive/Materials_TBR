@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import argparse
 import os
-import glob
 
 ##################################################################################################
 # Initial Setup
@@ -17,8 +16,8 @@ args = parser.parse_args()
 salt_name = args.salt
 
 # Define ranges for simulation
-breeder_thicknesses = np.linspace(0, 50.0, 10)
-enrichments = np.linspace(0, 100, 10)
+breeder_thicknesses = np.linspace(0, 25, 10)
+enrichments = np.linspace(10, 100, 10)
 
 # Initialize results array
 results = []
@@ -155,9 +154,9 @@ for width in breeder_thicknesses:
 
         # Simulation settings
         settings = openmc.Settings()
-        settings.batches = 10
+        settings.batches = 50
         settings.inactive = 0
-        settings.particles = 100
+        settings.particles = 500
         settings.run_mode = 'fixed source'
         settings.source = source
         settings.export_to_xml()
