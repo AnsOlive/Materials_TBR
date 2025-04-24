@@ -9,187 +9,238 @@ import os
 # Initial Setup
 ##################################################################################################
 
-# Parse arguments to get needed data from batch script
+# Find the salt name from command line arguments
 parser = argparse.ArgumentParser(description='Run OpenMC simulation with specified salt.')
 parser.add_argument('--salt', type=str, required=True, help='Name of the salt material to use')
 args = parser.parse_args()
 salt_name = args.salt
 
-# Define ranges for simulation
-breeder_thicknesses = np.linspace(0, 25, 10)
-enrichments = np.linspace(10, 100, 10)
+# Set the initial parameters for the simulation
+initial_breeder_thicknesses = np.linspace(0, 25, 10)
+initial_enrichments = np.linspace(10, 100, 10)
 
-# Initialize results array
 results = []
 
+def run_openmc_sim(width, enrich):
+    ##################################################################################################
+    # Main Simulation
+    ##################################################################################################
+
+    ##################################################################################################
+    # Materials
+    ##################################################################################################
+
+    # Defines the natural berillium reflector
+    Breeder = openmc.Material(name="Breeding Layer")
+    Breeder.set_density("g/cm3", 1.845)
+    Breeder.add_element("Be", 100)
+    materials = openmc.Materials([Breeder])
+
+    # Creates though all the salts you want to define below at a constant density of 1.91 g/cm^3, so they are the same as FLiBe
+    # No density specified in the paper and theorical densities are difficult to know
+
+    if salt_name == 'FLiBe':
+        salt = openmc.Material(name='FLiBe')
+        salt.set_density('g/cm3', 1.91)
+        salt.add_element('F', 57.3)
+        salt.add_element('Li', 28.2, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Be', 14.5)
+
+    elif salt_name == 'LiBaBi':
+        salt = openmc.Material(name="LiBaBi")
+        salt.set_density('g/cm3', 1.91)
+        salt.add_element('Li', 20, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Ba', 10)
+        salt.add_element('Bi', 70)
+
+    elif salt_name == 'LiPbBa':
+        salt = openmc.Material(name="LiPbBa")
+        salt.set_density('g/cm3', 1.91)
+        salt.add_element('Li', 25, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Pb', 60)
+        salt.add_element('Ba', 15)
+
+    elif salt_name == 'LiSnZn':
+        salt = openmc.Material(name="LiSnZn")
+        salt.set_density('g/cm3', 1.91)
+        salt.add_element('Li', 65, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Sn', 25)
+        salt.add_element('Zn', 10)
+
+    elif salt_name == 'LiCuPb':
+        salt = openmc.Material(name="LiCuPb")
+        salt.set_density('g/cm3', 1.91)
+        salt.add_element('Li', 40, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Cu', 20)
+        salt.add_element('Pb', 40)
+
+    elif salt_name == 'LiGaPb':
+        salt = openmc.Material(name="LiGaPb")
+        salt.set_density('g/cm3', 1.91)
+        salt.add_element('Li', 35, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Ga', 10)
+        salt.add_element('Pb', 55)
+
+    elif salt_name == 'LiSrPb':
+        salt = openmc.Material(name="LiSrPb")
+        salt.set_density('g/cm3', 1.91)
+        salt.add_element('Li', 30, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Sr', 50)
+        salt.add_element('Pb', 20)
+
+    elif salt_name == 'LiPbZn':
+        salt = openmc.Material(name="LiPbZn")
+        salt.set_density('g/cm3', 1.91)
+        salt.add_element('Li', 30, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Pb', 60)
+        salt.add_element('Zn', 10)
+
+    elif salt_name == 'LiNaSn':
+        salt = openmc.Material(name="LiNaSn")
+        salt.set_density('g/cm3', 1.91)
+        salt.add_element('Li', 55, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Na', 30)
+        salt.add_element('Sn', 15)
+
+    # Adds the selected salt to the simulation
+    materials.append(salt)
+    materials.export_to_xml()
+
+    ##################################################################################################
+    # Geometry
+    ##################################################################################################
+
+    # Defines all the radii for this iteration
+    inner_radius, outer_radius = 600, 200000
+    reflector_radius = 600 + width
+    boundary = outer_radius + 1
+
+    # Define all boundaries
+    sphere_inner = openmc.Sphere(r=inner_radius)
+    sphere_reflector = openmc.Sphere(r=reflector_radius)
+    sphere_outer = openmc.Sphere(r=outer_radius)
+    sphere_leakage = openmc.Sphere(r=boundary, boundary_type='reflective')
+
+    # Define all regions
+    center_void = -sphere_inner
+    region_reflector = +sphere_inner & -sphere_reflector
+    region_salt = +sphere_reflector & -sphere_outer
+    outer_void = +sphere_outer & -sphere_leakage
+
+    # Define all cells
+    center_cell = openmc.Cell(fill=None, region=center_void)
+    cell_reflector = openmc.Cell(fill=Breeder, region=region_reflector)
+    cell_salt = openmc.Cell(fill=salt, region=region_salt)
+    outer_cell = openmc.Cell(fill=None, region=outer_void)
+
+    # Create the universe
+    universe = openmc.Universe(cells=[center_cell, cell_salt, cell_reflector, outer_cell])
+    geometry = openmc.Geometry(universe)
+
+    # Export the geometry to XML
+    geometry.export_to_xml()
+
+    ##################################################################################################
+    # Settings
+    ##################################################################################################
+
+    # Define the source
+    source = openmc.IndependentSource()
+    source.particle = 'neutron'
+    source.energy = openmc.stats.Discrete([14.1e6], [1.0])
+    source.angle = openmc.stats.Isotropic()
+    source.space = openmc.stats.Point((0.0, 0.0, 0.0))
+
+    # Simulation settings
+    settings = openmc.Settings()
+    settings.batches = 50
+    settings.inactive = 0
+    settings.particles = 500
+    settings.run_mode = 'fixed source'
+    settings.source = source
+    settings.export_to_xml()
+        
+    ##################################################################################################
+    # Tallies
+    ##################################################################################################
+
+    # Initialize the tallies
+    tallies = openmc.Tallies()
+
+    # Looks at the overall TBR
+    TBR_tally = openmc.Tally(name='TBR')
+    TBR_tally.filters = [openmc.MaterialFilter([salt])]
+    TBR_tally.scores = ['(n,Xt)']
+    tallies.append(TBR_tally)
+
+    tallies.export_to_xml()
+
+    ##################################################################################################
+    # Run the OpenMC Simulation
+    ##################################################################################################
+    openmc.run()
+
+    ##################################################################################################
+    # Add Results
+    ##################################################################################################
+    # Use the written results to add to the results array
+    with openmc.StatePoint(f"statepoint.{settings.batches}.h5") as statepoint:
+        TBR_mean = statepoint.get_tally(name="TBR").mean.item()
+        TBR_std_dev = statepoint.get_tally(name="TBR").std_dev.item()
+
+    # Output the results
+    return TBR_mean, TBR_std_dev
+
 ##################################################################################################
-# Main Simulation
+# Initial Run
 ##################################################################################################
-# Loops through all the enrichments for a material for every thickness of the material
+
+# Run all the initial enrichments and widths
+for width in initial_breeder_thicknesses:
+    for enrich in initial_enrichments:
+        TBR_mean, TBR_std_dev = run_openmc_sim(width, enrich)
+        results.append([width, enrich, TBR_mean, TBR_std_dev])
+
+# Convert results into a NumPy array for structured processing
+results = np.array(results)
+max_index = np.argmax(results[:, 2])
+optimal_width = results[max_index, 0]
+optimal_enrichment = results[max_index, 1]
+max_tbr = results[max_index, 2]
+
+##################################################################################################
+# Iterative Refinement
+##################################################################################################
+
+# Refine the results around the optimal values
+enrich_threshold = 1.0
+width_threshold = 1.0
+refined_results = []
+
+# Define the ranges for the refined search
+enrichments = np.arange(
+    max(10, optimal_enrichment - 5), min(100, optimal_enrichment + 5) + 0.5, enrich_threshold)
+breeder_thicknesses = np.arange(
+    max(0, optimal_width - 2.5), min(25, optimal_width + 2.5) + 0.5, width_threshold)
+
+# Run the refined search
+local_results = []
 for width in breeder_thicknesses:
     for enrich in enrichments:
+        TBR_mean, TBR_std_dev = run_openmc_sim(width, enrich)
+        local_results.append([width, enrich, TBR_mean, TBR_std_dev])
 
-        ##################################################################################################
-        # Materials
-        ##################################################################################################
+# Convert local results into a NumPy array for structured processing
+local_results = np.array(local_results)
+refined_results.extend(local_results)
 
-        # Defines the natural berillium reflector
-        Breeder = openmc.Material(name="Breeding Layer")
-        Breeder.set_density("g/cm3", 1.845)
-        Breeder.add_element("Be", 100)
-        materials = openmc.Materials([Breeder])
+# Find the maximum TBR in the refined results
+local_max_idx = np.argmax(local_results[:, 2])
+best_width = local_results[local_max_idx, 0]
+best_enrich = local_results[local_max_idx, 1]
 
-        # Creates though all the salts you want to define below at a constant density of 1.7 g/cm^3
-
-        if salt_name == 'FLiBe':
-            salt = openmc.Material(name='FLiBe')
-            salt.set_density('g/cm3', 1.7)
-            salt.add_element('F', 57.3)
-            salt.add_element('Li', 28.2, enrichment=enrich, enrichment_target='Li6')
-            salt.add_element('Be', 14.5)
-
-        elif salt_name == 'LiBaBi':
-            salt = openmc.Material(name="LiBaBi")
-            salt.set_density("g/cm3", 1.7)
-            salt.add_element('Li', 20, enrichment=enrich, enrichment_target='Li6')
-            salt.add_element('Ba', 10)
-            salt.add_element('Bi', 70)
-
-        elif salt_name == 'LiPbBa':
-            salt = openmc.Material(name="LiPbBa")
-            salt.set_density("g/cm3", 1.7)
-            salt.add_element('Li', 25, enrichment=enrich, enrichment_target='Li6')
-            salt.add_element('Pb', 60)
-            salt.add_element('Ba', 15)
-
-        elif salt_name == 'LiSnZn':
-            salt = openmc.Material(name="LiSnZn")
-            salt.set_density("g/cm3", 1.7)
-            salt.add_element('Li', 65, enrichment=enrich, enrichment_target='Li6')
-            salt.add_element('Sn', 25)
-            salt.add_element('Zn', 10)
-
-        elif salt_name == 'LiCuPb':
-            salt = openmc.Material(name="LiCuPb")
-            salt.set_density("g/cm3", 1.7)
-            salt.add_element('Li', 40, enrichment=enrich, enrichment_target='Li6')
-            salt.add_element('Cu', 20)
-            salt.add_element('Pb', 40)
-
-        elif salt_name == 'LiGaPb':
-            salt = openmc.Material(name="LiGaPb")
-            salt.set_density("g/cm3", 1.7)
-            salt.add_element('Li', 35, enrichment=enrich, enrichment_target='Li6')
-            salt.add_element('Ga', 10)
-            salt.add_element('Pb', 55)
-
-        elif salt_name == 'LiSrPb':
-            salt = openmc.Material(name="LiSrPb")
-            salt.set_density("g/cm3", 1.7)
-            salt.add_element('Li', 30, enrichment=enrich, enrichment_target='Li6')
-            salt.add_element('Sr', 50)
-            salt.add_element('Pb', 20)
-
-        elif salt_name == 'LiPbZn':
-            salt = openmc.Material(name="LiPbZn")
-            salt.set_density("g/cm3", 1.7)
-            salt.add_element('Li', 30, enrichment=enrich, enrichment_target='Li6')
-            salt.add_element('Pb', 60)
-            salt.add_element('Zn', 10)
-
-        elif salt_name == 'LiNaSn':
-            salt = openmc.Material(name="LiNaSn")
-            salt.set_density("g/cm3", 1.7)
-            salt.add_element('Li', 55, enrichment=enrich, enrichment_target='Li6')
-            salt.add_element('Na', 30)
-            salt.add_element('Sn', 15)
-
-        # Adds the selected salt to the simulation
-        materials.append(salt)
-        materials.export_to_xml()
-
-        ##################################################################################################
-        # Geometry
-        ##################################################################################################
-
-        # Defines all the radii for this iteration
-        inner_radius, outer_radius = 600, 200000
-        reflector_radius = 600 + width
-        boundary = outer_radius + 1
-
-        # Define all boundaries
-        sphere_inner = openmc.Sphere(r=inner_radius)
-        sphere_reflector = openmc.Sphere(r=reflector_radius)
-        sphere_outer = openmc.Sphere(r=outer_radius)
-        sphere_leakage = openmc.Sphere(r=boundary, boundary_type='reflective')
-
-        # Define all regions
-        center_void = -sphere_inner
-        region_reflector = +sphere_inner & -sphere_reflector
-        region_salt = +sphere_reflector & -sphere_outer
-        outer_void = +sphere_outer & -sphere_leakage
-
-        # Define all cells
-        center_cell = openmc.Cell(fill=None, region=center_void)
-        cell_reflector = openmc.Cell(fill=Breeder, region=region_reflector)
-        cell_salt = openmc.Cell(fill=salt, region=region_salt)
-        outer_cell = openmc.Cell(fill=None, region=outer_void)
-
-        # Create the universe
-        universe = openmc.Universe(cells=[center_cell, cell_salt, cell_reflector, outer_cell])
-        geometry = openmc.Geometry(universe)
-
-        geometry.export_to_xml()
-
-        ##################################################################################################
-        # Settings
-        ##################################################################################################
-
-        # Define the source
-        source = openmc.IndependentSource()
-        source.particle = 'neutron'
-        source.energy = openmc.stats.Discrete([14.1e6], [1.0])
-        source.angle = openmc.stats.Isotropic()
-        source.space = openmc.stats.Point((0.0, 0.0, 0.0))
-
-        # Simulation settings
-        settings = openmc.Settings()
-        settings.batches = 50
-        settings.inactive = 0
-        settings.particles = 500
-        settings.run_mode = 'fixed source'
-        settings.source = source
-        settings.export_to_xml()
-            
-        ##################################################################################################
-        # Tallies
-        ##################################################################################################
-
-        tallies = openmc.Tallies()
-
-        # Looks at the overall TBR
-        TBR_tally = openmc.Tally(name='TBR')
-        TBR_tally.filters = [openmc.MaterialFilter([salt])]
-        TBR_tally.scores = ['(n,Xt)']
-        tallies.append(TBR_tally)
-
-        tallies.export_to_xml()
-
-        ##################################################################################################
-        # Run the OpenMC Simulation
-        ##################################################################################################
-        openmc.run()
-
-        ##################################################################################################
-        # Add Results
-        ##################################################################################################
-        # Use the written results to add to the results array
-        with openmc.StatePoint("statepoint.10.h5") as statepoint:
-            TBR_mean = statepoint.get_tally(name="TBR").mean.item()
-            TBR_std_dev = statepoint.get_tally(name="TBR").std_dev.item()
-
-            # Save results to list
-            results.append([width, enrich, TBR_mean, TBR_std_dev])
+# Combine the initial and refined results
+results = np.vstack([results, np.array(refined_results)])
 
 ##################################################################################################
 # Postprocessing
@@ -203,15 +254,27 @@ widths = results[:, 0]
 enrichments = results[:, 1]
 TBR_values = results[:, 2]
 
+# Use widths and enrichments to plot
+unique_widths = np.unique(widths)
+unique_enrichments = np.unique(enrichments)
+
 # Reshape arrays for 3D plotting
 X, Y = np.meshgrid(np.unique(enrichments), np.unique(widths))
-Z = results[:, 2].reshape(len(np.unique(widths)), len(np.unique(enrichments)))
+
+# Create a Z matrix for TBR values
+Z = np.full_like(X, np.nan, dtype=np.float64)
+for i in range(X.shape[0]):
+    for j in range(X.shape[1]):
+        mask = (widths == Y[i, j]) & (enrichments == X[i, j])
+        if np.any(mask):
+            Z[i, j] = TBR_values[mask][0]
 
 # Identify maximum TBR and the parameter values at this maxima
-max_index = np.argmax(results[:, 2])
-optimal_width = results[max_index, 0]
-optimal_enrichment = results[max_index, 1]
-max_tbr = results[max_index, 2]
+max_index = np.nanargmax(Z)
+i_max, j_max = np.unravel_index(max_index, Z.shape)
+optimal_width = Y[i_max, j_max]
+optimal_enrichment = X[i_max, j_max]
+max_tbr = Z[i_max, j_max]
 
 ##################################################################################################
 # Plots
@@ -240,9 +303,14 @@ plt.savefig(f"tbr_3d_plot{salt_name}.png", dpi=300)
 plt.show()
 
 # Plot TBR vs Breeder Thickness at Optimal Enrichment
-mask_enrich = results[:, 1] == optimal_enrichment
+mask_enrich = np.isclose(results[:, 1], optimal_enrichment)
 widths_at_opt_enrich = results[mask_enrich, 0]
 tbr_at_opt_enrich = results[mask_enrich, 2]
+
+# Sort by width before plotting
+sorted_indices = np.argsort(widths_at_opt_enrich)
+widths_at_opt_enrich = widths_at_opt_enrich[sorted_indices]
+tbr_at_opt_enrich = tbr_at_opt_enrich[sorted_indices]
 
 # Plot TBR vs Breeder Thickness
 fig3, ax3 = plt.subplots(figsize=(10, 6))
@@ -258,6 +326,11 @@ plt.close(fig3)
 mask_width = results[:, 0] == optimal_width
 enrichments_at_opt_width = results[mask_width, 1]
 tbr_at_opt_width = results[mask_width, 2]
+
+# Sort by enrichment before plotting
+sorted_indices = np.argsort(enrichments_at_opt_width)
+enrichments_at_opt_width = enrichments_at_opt_width[sorted_indices]
+tbr_at_opt_width = tbr_at_opt_width[sorted_indices]
 
 # Plot TBR vs Enrichment
 fig4, ax4 = plt.subplots(figsize=(10, 6))
