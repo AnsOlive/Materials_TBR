@@ -17,8 +17,6 @@ salt_name = args.salt
 # Set the initial enrichment values
 initial_enrichments = np.linspace(10, 100, 10)
 
-results = []
-
 def run_openmc_sim(enrich):
     ##################################################################################################
     # Main Simulation
@@ -187,15 +185,16 @@ def run_openmc_sim(enrich):
 ##################################################################################################
 
 # Run all the initial enrichments
+coarse_results = []
 for enrich in initial_enrichments:
     TBR_mean, TBR_std_dev = run_openmc_sim(enrich)
-    results.append([enrich, TBR_mean, TBR_std_dev])
+    coarse_results.append([enrich, TBR_mean, TBR_std_dev])
 
 # Convert results into a NumPy array for structured processing
-results = np.array(results)
-max_index = np.argmax(results[:, 1])
-optimal_enrichment = results[max_index, 0]
-max_tbr = results[max_index, 1]
+coarse_results = np.array(coarse_results)
+max_index = np.argmax(coarse_results[:, 1])
+optimal_enrichment = coarse_results[max_index, 0]
+max_tbr = coarse_results[max_index, 1]
 
 ##################################################################################################
 # Iterative Refinement
@@ -203,33 +202,33 @@ max_tbr = results[max_index, 1]
 
 # Refine the enrichment range around the optimal enrichment
 enrich_threshold = 1.0
-local_results = []
 
 # Define the range of enrichments to explore around the optimal enrichment
 enrichments = np.arange(max(10, optimal_enrichment - 5), min(100, optimal_enrichment + 5) + 0.5, enrich_threshold)
 
 # Run the OpenMC simulation for each enrichment in the refined range
+fine_results = []
 for enrich in enrichments:
     TBR_mean, TBR_std_dev = run_openmc_sim(enrich)
-    local_results.append([enrich, TBR_mean, TBR_std_dev])
-local_results = np.array(local_results)
+    fine_results.append([enrich, TBR_mean, TBR_std_dev])
+fine_results = np.array(fine_results)
 
 # Combine the results from the initial run and the local refinement
-results = np.vstack([results, local_results])
-results = np.array(results)
+combined_results = np.vstack([coarse_results, fine_results])
+combined_results = np.array(combined_results)
 
 ##################################################################################################
 # Plots
 ##################################################################################################
 
 # Extract width, enrichment, and TBR values which are needed to generate plots
-enrichments = results[:, 0]
-TBR_values = results[:, 1]
+enrichments = combined_results[:, 0]
+TBR_values = combined_results[:, 1]
 
 # Find maximum TBR and corresponding enrichment for all enrichments
-max_index = np.argmax(results[:, 1])
-optimal_enrichment = results[max_index, 0]
-max_tbr = results[max_index, 1]
+max_index = np.argmax(combined_results[:, 1])
+optimal_enrichment = combined_results[max_index, 0]
+max_tbr = combined_results[max_index, 1]
 
 # Sort by enrichment before plotting
 sorted_indices = np.argsort(enrichments)
@@ -250,26 +249,29 @@ plt.close(fig4)
 # Save Data
 ##################################################################################################
 
-# Print to console
-print(f"Maximum TBR for {salt_name}: {max_tbr:.5f}")
-print(f"Optimal lithium enrichment: {optimal_enrichment:.2f} %")
-
-# Print results in a readable format
+# Print results
 with open(f'raw_data_{salt_name}.txt', 'w') as file:
+    file.write("### Coarse Search Data (initial) ###\n")
     file.write("Enrichment (%) | TBR Mean | TBR Std Dev\n")
-    for enrichment, tbr_mean, tbr_std in results:
+    for enrichment, tbr_mean, tbr_std in coarse_results:
         file.write(f"{enrichment:14.2f} | {tbr_mean:8.5f} | {tbr_std:10.5f}\n")
-    file.write(f"\n\n The maximum enrichment for {salt_name} is {np.max(TBR_values)}")
-    file.write(f"\n\n The mean enrichment for {salt_name} is {np.mean(TBR_values)}")
-    file.write(f"\n\n The median enrichment for {salt_name} is {np.median(TBR_values)}")
-    file.write("\n\nMaximum TBR Results:\n")
+
+    file.write("\n### Refined Search Data (local refinement) ###\n")
+    file.write("Enrichment (%) | TBR Mean | TBR Std Dev\n")
+    for enrichment, tbr_mean, tbr_std in fine_results:
+        file.write(f"{enrichment:14.2f} | {tbr_mean:8.5f} | {tbr_std:10.5f}\n")
+
+    file.write("\n### TBR Summary Statistics:\n")
     file.write(f"Maximum TBR for {salt_name}: {max_tbr:.5f}\n")
     file.write(f"Optimal lithium enrichment: {optimal_enrichment:.2f} %\n")
+    file.write(f"\nMean TBR: {np.mean(TBR_values):.5f}\n")
+    file.write(f"Median TBR: {np.median(TBR_values):.5f}\n")
 
-# Remove unneeded files to reduce clutter
-os.remove('geometry.xml')
-os.remove('materials.xml')
-os.remove('settings.xml')
-os.remove(f'statepoint.{settings.batches}.h5')
-os.remove('summary.h5')
-os.remove('tallies.xml')
+print(f"Maximum TBR for {salt_name}: {max_tbr:.5f}")
+print(f"Optimal breeder width: {optimal_width:.2f} cm")
+print(f"Optimal lithium enrichment: {optimal_enrichment:.2f} %")
+
+# Clean up OpenMC temporary files
+for file in ['geometry.xml', 'materials.xml', 'settings.xml', 'summary.h5', f'statepoint.{settings.batches}.h5', 'tallies.xml']:
+    if os.path.exists(file):
+        os.remove(file)
