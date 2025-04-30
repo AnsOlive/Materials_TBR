@@ -33,11 +33,44 @@ def run_openmc_sim(enrich):
     # No density specified in the paper and theorical densities are difficult to know
 
     if salt_name == 'FLiBe':
-        salt = openmc.Material(name='FLiBe')
-        salt.set_density('g/cm3', 1.91)
-        salt.add_element('F', 57.3)
-        salt.add_element('Li', 28.2, enrichment=enrich, enrichment_target='Li6')
-        salt.add_element('Be', 14.5)
+            salt = openmc.Material(name='FLiBe')
+            salt.set_density('g/cm3', 2.04)
+            salt.add_element('F', 4)
+            salt.add_element('Li', 2, enrichment=enrich, enrichment_target='Li6')
+            salt.add_element('Be', 1)
+            salt.add_s_alpha_beta('c_Be' , fraction = .145)
+
+    elif salt_name == 'LiPb':
+        salt = openmc.Material(name="LiPb")
+        salt.set_density("g/cm3", 10.218)
+        salt.add_element('Li', 1, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Pb', 1)
+
+    elif salt_name == 'Li':
+        salt = openmc.Material(name="Li")
+        salt.set_density("g/cm3", 0.534)
+        salt.add_element('Li', 1, enrichment=enrich, enrichment_target='Li6')
+
+    elif salt_name == 'Li4SiO4':
+        salt = openmc.Material(name="Li4SiO4")
+        salt.set_density("g/cm3", 2.39)
+        salt.add_element('Li', 4, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Si', 1)
+        salt.add_element('O', 4)
+
+    elif salt_name == 'Li2TiO3':
+        salt = openmc.Material(name="Li2TiO3")
+        salt.set_density("g/cm3", 3.43)
+        salt.add_element('Li', 2, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Ti', 1)
+        salt.add_element('O', 3)
+
+    elif salt_name == 'Li2ZrO3':
+        salt = openmc.Material(name="Li2ZrO3")
+        salt.set_density("g/cm3", 4.153)
+        salt.add_element('Li', 2, enrichment=enrich, enrichment_target='Li6')
+        salt.add_element('Ga', 1)
+        salt.add_element('Pb', 3)
 
     elif salt_name == 'LiBaBi':
         salt = openmc.Material(name="LiBaBi")
@@ -141,6 +174,7 @@ def run_openmc_sim(enrich):
     source.space = openmc.stats.Point((0.0, 0.0, 0.0))
 
     # Simulation settings
+    global settings
     settings = openmc.Settings()
     settings.batches = 50
     settings.inactive = 0
